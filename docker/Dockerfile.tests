@@ -1,0 +1,23 @@
+# Test Runner — runs all pytest suites
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system deps
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# Copy project
+COPY pyproject.toml ./
+COPY src/ ./src/
+COPY tests/ ./tests/
+COPY config/ ./config/
+
+# Install all deps including dev
+RUN pip install --no-cache-dir -e ".[dev]"
+
+# Create reports dir
+RUN mkdir -p reports/html reports/json reports/coverage reports/logs
+
+ENV PYTHONPATH=/app/src
+
+CMD ["pytest", "tests/", "-v", "--tb=short"]

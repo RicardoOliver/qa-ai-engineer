@@ -1,0 +1,83 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "ml-quality-gate"
+version = "1.0.0"
+description = "Enterprise ML QA Framework — Big Tech Standards"
+authors = [{ name = "QA Engineering Team", email = "qa@yourorg.com" }]
+license = { text = "MIT" }
+requires-python = ">=3.11"
+keywords = ["ml", "qa", "testing", "machine-learning", "quality"]
+
+dependencies = [
+    "scikit-learn>=1.4.0",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "great-expectations>=0.18.0",
+    "evidently>=0.4.0",
+    "fairlearn>=0.10.0",
+    "requests>=2.31.0",
+    "pydantic>=2.6.0",
+    "pyyaml>=6.0.1",
+    "rich>=13.7.0",
+    "jinja2>=3.1.3",
+    "httpx>=0.27.0",
+    "loguru>=0.7.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
+    "pytest-html>=4.1.0",
+    "pytest-xdist>=3.5.0",
+    "pytest-timeout>=2.3.0",
+    "pytest-retry>=0.6.0",
+    "black>=24.2.0",
+    "ruff>=0.3.0",
+    "mypy>=1.9.0",
+    "pre-commit>=3.6.0",
+]
+
+[project.scripts]
+ml-quality-gate = "ml_quality_gate.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "--tb=short",
+    "--strict-markers",
+    "--cov=src/ml_quality_gate",
+    "--cov-report=html:reports/coverage",
+    "--cov-report=term-missing",
+    "--cov-fail-under=80",
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests (require running API)",
+    "performance: Performance tests (require K6)",
+    "fairness: Bias and fairness tests",
+    "e2e: End-to-end pipeline tests",
+    "slow: Tests that take > 10s",
+]
+timeout = 60
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/tests/*", "*/conftest.py"]

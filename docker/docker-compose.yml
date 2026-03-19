@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  # ── Mock ML API (for integration & performance tests) ──────────────────────
+  mock-ml-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.mock_api
+    container_name: ml-quality-gate-api
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_VERSION=2.1.0
+      - LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - ml-net
+
+  # ── Test Runner ────────────────────────────────────────────────────────────
+  test-runner:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.tests
+    container_name: ml-quality-gate-tests
+    depends_on:
+      mock-ml-api:
+        condition: service_healthy
+    environment:
+      - MODEL_API_URL=http://mock-ml-api:8000
+      - PYTHONPATH=/app/src
+    volumes:
+      - ../reports:/app/reports
+    command: >
+      pytest tests/ -v
+      --html=reports/html/full_report.html
+      --self-contained-html
+      --cov=src/ml_quality_gate
+      --cov-report=html:reports/coverage
+    networks:
+      - ml-net
+
+networks:
+  ml-net:
+    driver: bridge

@@ -1,0 +1,126 @@
+# ─── ML Quality Gate — Thresholds Configuration ──────────────────────────────
+# All values represent MINIMUM acceptable thresholds.
+# Pipeline fails if metrics fall below these values.
+
+model:
+  # Classification metrics
+  accuracy:
+    minimum: 0.85
+    critical: 0.80       # Below this = hard block on deploy
+  precision:
+    minimum: 0.83
+    critical: 0.78
+  recall:
+    minimum: 0.80
+    critical: 0.75
+  f1_score:
+    minimum: 0.82
+    critical: 0.77
+  roc_auc:
+    minimum: 0.88
+    critical: 0.82
+
+  # Regression metrics (used when task = "regression")
+  r2_score:
+    minimum: 0.80
+  mae:
+    maximum: 500.0        # Lower is better
+  rmse:
+    maximum: 750.0        # Lower is better
+
+data_quality:
+  # Maximum allowed ratio of missing values per column
+  max_null_ratio: 0.05
+
+  # Maximum allowed ratio of duplicate rows
+  max_duplicate_ratio: 0.02
+
+  # Minimum number of rows in dataset
+  min_row_count: 1000
+
+  # Allowed value ranges per feature (examples)
+  feature_ranges:
+    age:
+      min: 18
+      max: 100
+    income:
+      min: 0
+      max: 10_000_000
+    credit_score:
+      min: 300
+      max: 850
+
+  # Allowed categorical values per feature
+  categorical_values:
+    marital_status:
+      - "single"
+      - "married"
+      - "divorced"
+      - "widowed"
+    employment_type:
+      - "employed"
+      - "self_employed"
+      - "unemployed"
+      - "retired"
+
+drift:
+  # Maximum PSI (Population Stability Index) before alert
+  psi_threshold: 0.2           # > 0.2 = significant drift
+
+  # Maximum KS statistic before alert
+  ks_threshold: 0.1
+
+  # Evidently drift share threshold
+  dataset_drift_share: 0.3     # If > 30% features drifted = alert
+
+  # Target drift p-value threshold
+  target_drift_p_value: 0.05
+
+fairness:
+  # Maximum allowed disparity between demographic groups
+  max_demographic_parity_diff: 0.05    # 5% max gap
+  max_equalized_odds_diff: 0.05
+  max_accuracy_disparity: 0.05
+
+  # Sensitive features to evaluate
+  sensitive_features:
+    - "gender"
+    - "age_group"
+    - "ethnicity"
+
+api:
+  # Expected HTTP status codes
+  expected_status: 200
+
+  # Response schema required fields
+  required_response_fields:
+    - "prediction"
+    - "confidence"
+    - "model_version"
+    - "request_id"
+
+  # Confidence score must be within [0, 1]
+  confidence_range:
+    min: 0.0
+    max: 1.0
+
+performance:
+  # Latency thresholds (milliseconds)
+  latency:
+    p50_ms: 100
+    p95_ms: 300
+    p99_ms: 500
+    max_ms: 1000
+
+  # Throughput
+  min_rps: 50              # Minimum requests per second
+
+  # Error rates
+  max_error_rate: 0.01     # 1% max
+
+  # Load test config
+  load_test:
+    vus: 50                # Virtual users
+    duration: "3m"
+    ramp_up: "1m"
+    ramp_down: "1m"

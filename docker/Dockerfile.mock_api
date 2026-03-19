@@ -1,0 +1,73 @@
+# Mock ML Prediction API — for integration & performance testing
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir fastapi uvicorn[standard] pydantic scikit-learn numpy
+
+COPY src/ ./src/
+COPY config/ ./config/
+
+# Minimal mock API server
+RUN cat > /app/mock_api.py << 'EOF'
+"""
+Minimal FastAPI mock server for the ML prediction API.
+Returns realistic synthetic predictions for testing purposes.
+"""
+import uuid
+import random
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+from enum import Enum
+
+app = FastAPI(title="Credit Risk Model API", version="2.1.0")
+
+class EmploymentType(str, Enum):
+    employed = "employed"
+    self_employed = "self_employed"
+    unemployed = "unemployed"
+    retired = "retired"
+
+class MaritalStatus(str, Enum):
+    single = "single"
+    married = "married"
+    divorced = "divorced"
+    widowed = "widowed"
+
+class PredictionRequest(BaseModel):
+    age: int = Field(..., ge=18, le=100)
+    income: float = Field(..., ge=0)
+    credit_score: int = Field(..., ge=300, le=850)
+    loan_amount: float = Field(..., ge=1_000)
+    loan_term_months: int = Field(..., ge=1, le=360)
+    employment_type: EmploymentType
+    marital_status: MaritalStatus
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "model_version": "2.1.0", "uptime_seconds": 9999.0, "checks": {"model": True, "db": True}}
+
+@app.post("/v1/predict")
+def predict(req: PredictionRequest):
+    # Simple deterministic mock: low credit_score = higher default prob
+    default_prob = 1 - (req.credit_score - 300) / 550
+    if req.employment_type == "unemployed":
+        default_prob += 0.15
+    default_prob = max(0.05, min(0.95, default_prob))
+    prediction = 1 if default_prob > 0.5 else 0
+    return {
+        "prediction": prediction,
+        "confidence": round(abs(default_prob - 0.5) * 2, 4),
+        "model_version": "2.1.0",
+        "request_id": str(uuid.uuid4()),
+        "feature_importance": {
+            "credit_score": 0.42,
+            "income": 0.28,
+            "loan_amount": 0.18,
+            "age": 0.12,
+        }
+    }
+EOF
+
+EXPOSE 8000
+CMD ["uvicorn", "mock_api:app", "--host", "0.0.0.0", "--port", "8000"]

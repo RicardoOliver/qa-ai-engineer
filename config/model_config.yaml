@@ -1,0 +1,56 @@
+# ─── ML Quality Gate — Model Configuration ───────────────────────────────────
+
+model:
+  name: "credit_risk_classifier"
+  version: "2.1.0"
+  task: "classification"          # classification | regression | ranking
+  framework: "scikit-learn"       # scikit-learn | xgboost | pytorch | tensorflow
+
+  # Paths (relative to project root)
+  artifact_path: "artifacts/model.pkl"
+  test_data_path: "artifacts/test_data.parquet"
+  reference_data_path: "artifacts/reference_data.parquet"
+
+  # Model metadata
+  target_column: "default"
+  positive_class: 1
+  feature_columns:
+    - "age"
+    - "income"
+    - "credit_score"
+    - "employment_type"
+    - "marital_status"
+    - "loan_amount"
+    - "loan_term"
+
+api:
+  base_url: "${MODEL_API_URL}"    # Set via env var
+  predict_endpoint: "/v1/predict"
+  health_endpoint: "/health"
+  timeout_seconds: 10
+  auth:
+    type: "bearer"                # bearer | api_key | none
+    token_env_var: "MODEL_API_TOKEN"
+
+notifications:
+  slack:
+    enabled: true
+    webhook_env_var: "SLACK_WEBHOOK_URL"
+    channel: "#ml-quality-alerts"
+    notify_on:
+      - "quality_gate_failed"
+      - "drift_detected"
+      - "fairness_violation"
+
+reporting:
+  output_dir: "reports"
+  formats:
+    - "html"
+    - "json"
+  include_sections:
+    - "model_metrics"
+    - "data_quality"
+    - "drift_analysis"
+    - "fairness_report"
+    - "api_health"
+    - "performance"

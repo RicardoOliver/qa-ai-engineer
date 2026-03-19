@@ -1,0 +1,214 @@
+name: 🧪 ML Quality Gate — AWS SageMaker
+
+# Pipeline completo integrado com AWS:
+# roda testes contra endpoint SageMaker real, dados do S3,
+# publica métricas no CloudWatch e notifica via SNS.
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * *"   # Diariamente às 6h UTC
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+  AWS_REGION: "us-east-1"
+
+jobs:
+  # ── Autenticação AWS ──────────────────────────────────────────────────────
+  setup:
+    name: 🔐 AWS Auth & Setup
+    runs-on: ubuntu-latest
+    outputs:
+      endpoint-available: ${{ steps.check.outputs.available }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Verificar endpoint SageMaker
+        id: check
+        run: |
+          STATUS=$(aws sagemaker describe-endpoint \
+            --endpoint-name ${{ secrets.SAGEMAKER_ENDPOINT_NAME }} \
+            --query 'EndpointStatus' --output text 2>/dev/null || echo "NOT_FOUND")
+          echo "Endpoint status: $STATUS"
+          echo "available=$([[ "$STATUS" == "InService" ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+
+  # ── Testes Unitários (sem AWS) ────────────────────────────────────────────
+  unit-tests:
+    name: 🧪 Testes Unitários
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -e ".[dev]"
+
+      - name: Rodar unit tests
+        run: |
+          pytest tests/unit/ tests/fairness/ tests/e2e/ \
+            -v -m "unit or fairness or e2e" \
+            --html=reports/html/unit_report.html \
+            --self-contained-html \
+            --cov=src/ml_quality_gate \
+            --cov-report=xml:reports/coverage.xml
+
+      - name: Upload relatório
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-report
+          path: reports/html/unit_report.html
+
+  # ── Testes de Integração contra SageMaker ────────────────────────────────
+  sagemaker-integration:
+    name: 🤖 SageMaker Integration Tests
+    runs-on: ubuntu-latest
+    needs: [setup, unit-tests]
+    if: needs.setup.outputs.endpoint-available == 'true'
+    env:
+      SAGEMAKER_ENDPOINT_NAME: ${{ secrets.SAGEMAKER_ENDPOINT_NAME }}
+      S3_BUCKET:                ${{ secrets.S3_BUCKET }}
+      S3_REFERENCE_DATA_KEY:    ${{ secrets.S3_REFERENCE_DATA_KEY }}
+      S3_CURRENT_DATA_KEY:      ${{ secrets.S3_CURRENT_DATA_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -e ".[dev]" boto3
+
+      - name: Testes de contrato do endpoint SageMaker
+        run: |
+          pytest examples/aws/sagemaker/test_endpoint.py \
+            -v -m integration \
+            --html=reports/html/sagemaker_report.html \
+            --self-contained-html \
+            --tb=short
+
+      - name: Verificar drift com dados do S3
+        run: |
+          python examples/aws/monitor/sagemaker_monitor.py \
+            --endpoint-name $SAGEMAKER_ENDPOINT_NAME \
+            --baseline-uri s3://$S3_BUCKET/baselines/ \
+            --check
+
+      - name: Upload relatório SageMaker
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sagemaker-integration-report
+          path: reports/html/sagemaker_report.html
+
+  # ── Publicar métricas no CloudWatch ───────────────────────────────────────
+  publish-metrics:
+    name: 📊 Publicar no CloudWatch
+    runs-on: ubuntu-latest
+    needs: [unit-tests, sagemaker-integration]
+    if: always() && needs.unit-tests.result != 'cancelled'
+    env:
+      SAGEMAKER_ENDPOINT_NAME: ${{ secrets.SAGEMAKER_ENDPOINT_NAME }}
+      CLOUDWATCH_NAMESPACE:    MLQualityGate
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -e ".[dev]" boto3
+
+      - name: Publicar resultado do gate no CloudWatch
+        run: |
+          python - <<'EOF'
+          import sys
+          sys.path.insert(0, 'src')
+          sys.path.insert(0, '.')
+          from examples.aws.cloudwatch.cloudwatch_reporter import CloudWatchReporter
+
+          model_name = "${{ secrets.SAGEMAKER_ENDPOINT_NAME }}"
+          unit_passed = "${{ needs.unit-tests.result }}" == "success"
+          sm_passed   = "${{ needs.sagemaker-integration.result }}" in ("success", "skipped")
+          gate_passed = unit_passed and sm_passed
+
+          reporter = CloudWatchReporter(model_name=model_name)
+          reporter.publish_quality_gate_result(
+              passed=gate_passed,
+              failed_checks=0 if gate_passed else 1,
+          )
+          print(f"Gate {'PASSOU' if gate_passed else 'FALHOU'} — publicado no CloudWatch.")
+          EOF
+
+  # ── Deploy automático se gate passou ─────────────────────────────────────
+  auto-deploy:
+    name: 🚀 Deploy Automático
+    runs-on: ubuntu-latest
+    needs: [unit-tests, sagemaker-integration]
+    if: |
+      github.ref == 'refs/heads/main' &&
+      needs.unit-tests.result == 'success' &&
+      (needs.sagemaker-integration.result == 'success' || needs.sagemaker-integration.result == 'skipped')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -e ".[dev]" boto3
+
+      - name: Deploy modelo aprovado no SageMaker
+        run: |
+          python examples/aws/sagemaker/deploy_model.py \
+            --model-name ${{ secrets.SAGEMAKER_ENDPOINT_NAME }} \
+            --model-uri  s3://${{ secrets.S3_BUCKET }}/models/latest/model.tar.gz \
+            --instance-type ml.m5.large
+        env:
+          SAGEMAKER_ROLE_ARN: ${{ secrets.SAGEMAKER_ROLE_ARN }}
+          S3_BUCKET:          ${{ secrets.S3_BUCKET }}
