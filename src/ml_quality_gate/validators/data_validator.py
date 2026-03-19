@@ -106,6 +106,39 @@ class DataValidator:
             DataCheckResult(check_name, column, passed, detail, severity)
         )
 
+    # ✅ NOVO MÉTODO (ESSENCIAL)
+    def check_feature_ranges(self) -> DataValidator:
+        ranges = self._cfg.get("feature_ranges", {})
+
+        for col, bounds in ranges.items():
+            if col not in self.df.columns:
+                continue
+
+            series = self.df[col].dropna()
+
+            min_val = bounds.get("min")
+            max_val = bounds.get("max")
+
+            if min_val is not None:
+                passed = bool((series >= min_val).all())
+                self._add(
+                    "range_min",
+                    col,
+                    passed,
+                    f"min={series.min()} (expected >= {min_val})",
+                )
+
+            if max_val is not None:
+                passed = bool((series <= max_val).all())
+                self._add(
+                    "range_max",
+                    col,
+                    passed,
+                    f"max={series.max()} (expected <= {max_val})",
+                )
+
+        return self
+
     def check_minimum_rows(self) -> DataValidator:
         min_rows = self._cfg.get("min_row_count", 1000)
         actual = len(self.df)
@@ -162,7 +195,6 @@ class DataValidator:
 
         return self
 
-    # 🔥 MÉTODO 1
     def check_data_types(
         self,
         expected_types: dict[str, str] | None = None,
@@ -186,7 +218,6 @@ class DataValidator:
 
         return self
 
-    # 🔥 MÉTODO 2
     def check_class_balance(
         self,
         target_col: str,
@@ -217,7 +248,12 @@ class DataValidator:
         target_col: str | None = None,
         expected_types: dict[str, str] | None = None,
     ) -> DataValidationReport:
-        self.check_minimum_rows().check_null_ratios().check_duplicates().check_no_infinite_values()
+
+        self.check_minimum_rows() \
+            .check_null_ratios() \
+            .check_duplicates() \
+            .check_feature_ranges() \
+            .check_no_infinite_values()
 
         if expected_types:
             self.check_data_types(expected_types)
