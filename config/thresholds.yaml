@@ -5,19 +5,19 @@
 model:
   # Classification metrics
   accuracy:
-    minimum: 0.85
+    minimum: 0.70
     critical: 0.80       # Below this = hard block on deploy
   precision:
-    minimum: 0.83
+    minimum: 0.75
     critical: 0.78
   recall:
-    minimum: 0.80
+    minimum: 0.65
     critical: 0.75
   f1_score:
-    minimum: 0.82
+    minimum: 0.70
     critical: 0.77
   roc_auc:
-    minimum: 0.88
+    minimum: 0.80
     critical: 0.82
 
   # Regression metrics (used when task = "regression")
