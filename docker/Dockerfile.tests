@@ -1,10 +1,12 @@
-# Test Runner — runs all pytest suites
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system deps
+# System deps
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# 🔥 IMPORTANTE: atualizar build tools
+RUN pip install --upgrade pip setuptools wheel
 
 # Copy project
 COPY pyproject.toml ./
@@ -12,10 +14,10 @@ COPY src/ ./src/
 COPY tests/ ./tests/
 COPY config/ ./config/
 
-# Install all deps including dev
+# Install deps
 RUN pip install --no-cache-dir -e ".[dev]"
 
-# Create reports dir
+# Reports
 RUN mkdir -p reports/html reports/json reports/coverage reports/logs
 
 ENV PYTHONPATH=/app/src
