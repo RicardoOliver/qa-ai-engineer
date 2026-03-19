@@ -1,6 +1,6 @@
 # 🧪 ML Quality Gate Framework
 
-> Framework de QA enterprise para sistemas de Machine Learning — padrão big tech.
+> Framework de QA enterprise para sistemas de Machine Learning.
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python)
 ![Pytest](https://img.shields.io/badge/Pytest-7.x-green?logo=pytest)
