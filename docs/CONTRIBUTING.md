@@ -1,29 +1,29 @@
-# Contributing to ML Quality Gate
+# Contribuindo para o ML Quality Gate
 
-## Getting Started
+## Primeiros Passos
 
-1. Fork the repo and clone your fork
-2. Create a virtual env: `python -m venv .venv && source .venv/bin/activate`
-3. Install dev deps: `pip install -e ".[dev]"`
-4. Install pre-commit hooks: `pre-commit install`
+1. Faça um fork do repositório e clone o seu fork
+2. Crie um ambiente virtual: `python -m venv .venv && source .venv/bin/activate`
+3. Instale as dependências de desenvolvimento: `pip install -e ".[dev]"`
+4. Instale os hooks de pre-commit: `pre-commit install`
 
-## Adding New Tests
+## Adicionando Novos Testes
 
-- **Unit tests** → `tests/unit/`
-- **Integration tests** → `tests/integration/`
-- **Fairness tests** → `tests/fairness/`
-- **E2E tests** → `tests/e2e/`
+- **Testes unitários** → `tests/unit/`
+- **Testes de integração** → `tests/integration/`
+- **Testes de fairness (equidade)** → `tests/fairness/`
+- **Testes E2E** → `tests/e2e/`
 
-Always mark tests with the appropriate pytest marker (`@pytest.mark.unit`, etc.)
+Sempre marque os testes com o marcador apropriado do pytest (`@pytest.mark.unit`, etc.)
 
-## Updating Thresholds
+## Atualizando Limiares
 
-Edit `config/thresholds.yaml`. All threshold changes require approval from the QA Lead and ML Engineer.
+Edite `config/thresholds.yaml`. Todas as alterações de limiares exigem aprovação do QA Lead e do Engenheiro de ML.
 
-## Pull Request Checklist
+## Checklist de Pull Request
 
-- [ ] All new tests pass locally (`make quality-gate`)
-- [ ] Code formatted (`make format`)
-- [ ] Type checks pass (`make typecheck`)
-- [ ] Thresholds documented if changed
-- [ ] PR description explains the change
+- [ ] Todos os novos testes passam localmente (`make quality-gate`)
+- [ ] Código formatado (`make format`)
+- [ ] Verificações de tipo aprovadas (`make typecheck`)
+- [ ] Limiares documentados, se alterados
+- [ ] Descrição do PR explica a mudança

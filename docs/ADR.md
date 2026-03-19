@@ -1,59 +1,59 @@
-# Architecture Decision Records (ADR)
+# Registros de Decisão de Arquitetura (ADR)
 
-## ADR-001: pytest as primary test runner
+## ADR-001: pytest como principal executor de testes
 
-**Status:** Accepted
+**Status:** Aceito
 
-**Context:** Need a unified test runner for all QA suites (unit, integration, fairness, e2e).
+**Contexto:** Necessidade de um executor de testes unificado para todas as suítes de QA (unitários, integração, fairness, e2e).
 
-**Decision:** Use pytest with custom markers to segregate suites. Fixtures in `conftest.py` at session scope to avoid redundant model training.
+**Decisão:** Utilizar pytest com marcadores customizados para separar as suítes. Fixtures em `conftest.py` com escopo de sessão para evitar treinamento redundante de modelos.
 
-**Consequences:** All engineers use the same `pytest` command regardless of suite. Fixtures cached at session scope keep CI runs fast.
-
----
-
-## ADR-002: Thresholds externalized to YAML
-
-**Status:** Accepted
-
-**Context:** Metric thresholds are business decisions (agreed by ML Engineering + Product) and should be reviewable without touching test code.
-
-**Decision:** All thresholds live in `config/thresholds.yaml`. Tests load them at runtime via `ConfigLoader`. Changes to thresholds require a PR and reviewer approval.
-
-**Consequences:** Threshold changes are tracked in git history. Non-engineers can propose threshold changes via YAML PRs.
+**Consequências:** Todos os engenheiros utilizam o mesmo comando `pytest`, independentemente da suíte. Fixtures em cache no escopo de sessão mantêm as execuções de CI rápidas.
 
 ---
 
-## ADR-003: K6 for performance testing (not Locust/JMeter)
+## ADR-002: Limiares externalizados em YAML
 
-**Status:** Accepted
+**Status:** Aceito
 
-**Context:** Need a modern, scriptable performance tool that integrates with CI/CD.
+**Contexto:** Os limiares de métricas são decisões de negócio (acordadas entre Engenharia de ML + Produto) e devem ser revisáveis sem alterar o código de teste.
 
-**Decision:** K6 (Grafana) chosen for its JavaScript scripting, built-in metrics, low overhead, and native GitHub Actions support. Team already uses it.
+**Decisão:** Todos os limiares ficam em `config/thresholds.yaml`. Os testes os carregam em tempo de execução via `ConfigLoader`. Alterações nos limiares exigem um PR e aprovação de revisores.
 
-**Consequences:** Performance tests are JavaScript; a separate K6 installation is required. Thresholds are enforced natively without external tooling.
-
----
-
-## ADR-004: Fairlearn for fairness metrics
-
-**Status:** Accepted
-
-**Context:** Need a standardized way to compute demographic parity, equalized odds, etc.
-
-**Decision:** Microsoft Fairlearn library provides industry-standard fairness metrics and integrates cleanly with scikit-learn.
-
-**Consequences:** Fairlearn adds a dependency. Custom `FairnessValidator` wraps it to enforce our specific threshold config.
+**Consequências:** Alterações de limiares são rastreadas no histórico do git. Pessoas não engenheiras podem propor mudanças via PRs em YAML.
 
 ---
 
-## ADR-005: No MLflow dependency in QA layer
+## ADR-003: K6 para testes de performance (não Locust/JMeter)
 
-**Status:** Accepted
+**Status:** Aceito
 
-**Context:** MLflow (or similar) could be used for experiment tracking and model loading.
+**Contexto:** Necessidade de uma ferramenta moderna e scriptável de performance que se integre com CI/CD.
 
-**Decision:** QA layer is MLflow-agnostic. Models are loaded from artifacts directory or provided via fixtures. This keeps the QA framework portable across model registries.
+**Decisão:** K6 (Grafana) foi escolhido por seu suporte a scripts em JavaScript, métricas nativas, baixo overhead e suporte nativo ao GitHub Actions. A equipe já utiliza a ferramenta.
 
-**Consequences:** Teams using MLflow must write a thin adapter to load models into the test fixture format. A `scripts/load_from_mlflow.py` helper can be added separately.
+**Consequências:** Testes de performance são escritos em JavaScript; é necessária uma instalação separada do K6. Limiares são aplicados nativamente sem necessidade de ferramentas externas.
+
+---
+
+## ADR-004: Fairlearn para métricas de equidade (fairness)
+
+**Status:** Aceito
+
+**Contexto:** Necessidade de uma forma padronizada para calcular paridade demográfica, equalized odds, entre outros.
+
+**Decisão:** A biblioteca Microsoft Fairlearn fornece métricas de equidade padrão da indústria e integra-se facilmente com scikit-learn.
+
+**Consequências:** Fairlearn adiciona uma dependência ao projeto. Um `FairnessValidator` customizado encapsula a biblioteca para aplicar nossa configuração específica de limiares.
+
+---
+
+## ADR-005: Sem dependência de MLflow na camada de QA
+
+**Status:** Aceito
+
+**Contexto:** MLflow (ou similares) poderia ser utilizado para rastreamento de experimentos e carregamento de modelos.
+
+**Decisão:** A camada de QA é agnóstica ao MLflow. Os modelos são carregados a partir do diretório de artefatos ou fornecidos via fixtures. Isso mantém o framework de QA portável entre diferentes registries de modelos.
+
+**Consequências:** Times que utilizam MLflow precisam criar um adaptador simples para carregar modelos no formato esperado pelas fixtures de teste. Um helper `scripts/load_from_mlflow.py` pode ser adicionado separadamente.
