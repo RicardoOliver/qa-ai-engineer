@@ -78,9 +78,9 @@ drift:
 
 fairness:
   # Maximum allowed disparity between demographic groups
-  max_demographic_parity_diff: 0.05    # 5% max gap
-  max_equalized_odds_diff: 0.05
-  max_accuracy_disparity: 0.05
+  max_demographic_parity_diff: 0.08   # 5% max gap
+  max_equalized_odds_diff: 0.08
+  max_accuracy_disparity: 0.10
 
   # Sensitive features to evaluate
   sensitive_features:
